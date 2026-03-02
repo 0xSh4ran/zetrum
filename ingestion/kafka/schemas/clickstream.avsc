@@ -1,0 +1,255 @@
+{
+  "type": "record",
+  "name": "ClickstreamEvent",
+  "namespace": "io.zetrum.clickstream",
+  "doc": "Schema for a single user clickstream event captured from web/mobile/backend sources.",
+  "fields": [
+    {
+      "name": "event_id",
+      "type": "string",
+      "doc": "Unique UUID for this event. Used for deduplication in Silver layer."
+    },
+    {
+      "name": "event_type",
+      "type": {
+        "type": "enum",
+        "name": "EventType",
+        "symbols": [
+          "page_view",
+          "click",
+          "scroll",
+          "search",
+          "add_to_cart",
+          "remove_from_cart",
+          "checkout_start",
+          "checkout_complete",
+          "login",
+          "logout",
+          "app_open",
+          "app_close",
+          "error"
+        ]
+      },
+      "doc": "Type of user interaction captured."
+    },
+    {
+      "name": "event_timestamp",
+      "type": "long",
+      "logicalType": "timestamp-millis",
+      "doc": "Unix timestamp in milliseconds when the event occurred on the client."
+    },
+    {
+      "name": "ingestion_timestamp",
+      "type": "long",
+      "logicalType": "timestamp-millis",
+      "doc": "Unix timestamp in milliseconds when the event was received by the producer."
+    },
+    {
+      "name": "user_id",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Authenticated user ID. Null for anonymous/guest users."
+    },
+    {
+      "name": "session_id",
+      "type": "string",
+      "doc": "Session identifier. Groups events belonging to the same user session."
+    },
+    {
+      "name": "anonymous_id",
+      "type": "string",
+      "doc": "Persistent anonymous ID stored in cookie or device storage. Always present."
+    },
+    {
+      "name": "device",
+      "type": {
+        "type": "record",
+        "name": "Device",
+        "fields": [
+          {
+            "name": "device_type",
+            "type": {
+              "type": "enum",
+              "name": "DeviceType",
+              "symbols": ["desktop", "mobile", "tablet", "smart_tv", "unknown"]
+            }
+          },
+          {
+            "name": "os",
+            "type": "string",
+            "doc": "Operating system. e.g. Windows 11, iOS 17, Android 14"
+          },
+          {
+            "name": "browser",
+            "type": ["null", "string"],
+            "default": null,
+            "doc": "Browser name. e.g. Chrome, Safari, Firefox. Null for native apps."
+          },
+          {
+            "name": "browser_version",
+            "type": ["null", "string"],
+            "default": null
+          },
+          {
+            "name": "app_version",
+            "type": ["null", "string"],
+            "default": null,
+            "doc": "Mobile app version. Null for web sources."
+          },
+          {
+            "name": "screen_resolution",
+            "type": ["null", "string"],
+            "default": null,
+            "doc": "e.g. 1920x1080"
+          }
+        ]
+      },
+      "doc": "Device metadata at the time of the event."
+    },
+    {
+      "name": "geo",
+      "type": {
+        "type": "record",
+        "name": "Geo",
+        "fields": [
+          {
+            "name": "country",
+            "type": "string",
+            "doc": "ISO 3166-1 alpha-2 country code. e.g. IN, US, GB"
+          },
+          {
+            "name": "region",
+            "type": ["null", "string"],
+            "default": null,
+            "doc": "State or region name."
+          },
+          {
+            "name": "city",
+            "type": ["null", "string"],
+            "default": null
+          },
+          {
+            "name": "timezone",
+            "type": "string",
+            "doc": "IANA timezone. e.g. Asia/Kolkata"
+          },
+          {
+            "name": "ip_address",
+            "type": ["null", "string"],
+            "default": null,
+            "doc": "Hashed IP for privacy compliance. Never store raw IP."
+          }
+        ]
+      }
+    },
+    {
+      "name": "page",
+      "type": {
+        "type": "record",
+        "name": "Page",
+        "fields": [
+          {
+            "name": "url",
+            "type": "string",
+            "doc": "Full URL of the page where the event occurred."
+          },
+          {
+            "name": "path",
+            "type": "string",
+            "doc": "URL path only. e.g. /products/shoes"
+          },
+          {
+            "name": "referrer",
+            "type": ["null", "string"],
+            "default": null,
+            "doc": "Previous page URL."
+          },
+          {
+            "name": "title",
+            "type": ["null", "string"],
+            "default": null,
+            "doc": "HTML page title."
+          }
+        ]
+      }
+    },
+    {
+      "name": "properties",
+      "type": {
+        "type": "record",
+        "name": "EventProperties",
+        "fields": [
+          {
+            "name": "product_id",
+            "type": ["null", "string"],
+            "default": null,
+            "doc": "Product ID for commerce events like add_to_cart, click on product."
+          },
+          {
+            "name": "product_name",
+            "type": ["null", "string"],
+            "default": null
+          },
+          {
+            "name": "category",
+            "type": ["null", "string"],
+            "default": null,
+            "doc": "Product or content category."
+          },
+          {
+            "name": "price",
+            "type": ["null", "double"],
+            "default": null,
+            "doc": "Product price in USD at the time of the event."
+          },
+          {
+            "name": "search_query",
+            "type": ["null", "string"],
+            "default": null,
+            "doc": "Search term entered by user. Only present for search events."
+          },
+          {
+            "name": "scroll_depth_pct",
+            "type": ["null", "int"],
+            "default": null,
+            "doc": "Scroll depth as percentage 0-100. Only for scroll events."
+          },
+          {
+            "name": "click_element",
+            "type": ["null", "string"],
+            "default": null,
+            "doc": "CSS selector or element ID of the clicked element."
+          },
+          {
+            "name": "error_message",
+            "type": ["null", "string"],
+            "default": null,
+            "doc": "Error description. Only for error events."
+          },
+          {
+            "name": "order_value",
+            "type": ["null", "double"],
+            "default": null,
+            "doc": "Total order value in USD. Only for checkout_complete events."
+          }
+        ]
+      },
+      "doc": "Event-specific payload. Fields are nullable depending on event_type."
+    },
+    {
+      "name": "source",
+      "type": {
+        "type": "enum",
+        "name": "Source",
+        "symbols": ["web", "ios", "android", "backend_service", "event_log"]
+      },
+      "doc": "Origin of the event."
+    },
+    {
+      "name": "schema_version",
+      "type": "string",
+      "default": "1.0.0",
+      "doc": "Schema version. Increment on breaking changes."
+    }
+  ]
+}

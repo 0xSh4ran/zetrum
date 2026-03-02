@@ -1,0 +1,263 @@
+# ============================================================
+# ZETRUM - Clickstream Data Platform
+# Memory-optimized for 8GB RAM machines
+# Services: Zookeeper, Kafka, Schema Registry, MinIO, Spark
+# ------------------------------------------------------------
+# Start:   docker compose up -d
+# Stop:    docker compose down
+# Logs:    docker compose logs -f <service>
+# ============================================================
+
+networks:
+  zetrum-net:
+    driver: bridge
+
+volumes:
+  minio-data:
+  kafka-data:
+  zookeeper-data:
+  zookeeper-log:
+
+services:
+
+  # ------------------------------------------------------------
+  # ZOOKEEPER — Kafka coordination
+  # ------------------------------------------------------------
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    container_name: zetrum-zookeeper
+    networks:
+      - zetrum-net
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_SYNC_LIMIT: 2
+    volumes:
+      - zookeeper-data:/var/lib/zookeeper/data
+      - zookeeper-log:/var/lib/zookeeper/log
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo ruok | timeout 2 bash -c 'cat >/dev/tcp/localhost/2181'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ------------------------------------------------------------
+  # KAFKA — Event streaming backbone
+  # Open-source equivalent of AWS Kinesis
+  # ------------------------------------------------------------
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: zetrum-kafka
+    networks:
+      - zetrum-net
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9092:9092"       # External access from host machine
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_LOG_RETENTION_HOURS: 24
+      KAFKA_HEAP_OPTS: "-Xmx512M -Xms256M"   # Memory cap for 8GB machines
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    deploy:
+      resources:
+        limits:
+          memory: 640M
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+
+  # ------------------------------------------------------------
+  # SCHEMA REGISTRY — Avro schema management for Kafka
+  # Enforces contract between producers and consumers
+  # ------------------------------------------------------------
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.6.0
+    container_name: zetrum-schema-registry
+    networks:
+      - zetrum-net
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8081:8081"
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:29092
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/subjects"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # ------------------------------------------------------------
+  # MINIO — S3-compatible object storage
+  # Open-source equivalent of AWS S3
+  # Hosts Bronze / Silver / Gold Iceberg tables
+  # ------------------------------------------------------------
+  minio:
+    image: minio/minio:RELEASE.2024-03-21T23-13-43Z
+    container_name: zetrum-minio
+    networks:
+      - zetrum-net
+    ports:
+      - "9000:9000"       # S3 API endpoint
+      - "9001:9001"       # MinIO Web Console → open http://localhost:9001
+    environment:
+      MINIO_ROOT_USER: zetrum_admin
+      MINIO_ROOT_PASSWORD: zetrum_secret_2024
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio-data:/data
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "bash", "-c", "cat /proc/1/status | grep -q Sleeping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ------------------------------------------------------------
+  # MINIO INIT — Creates buckets on first startup
+  # Runs once and exits
+  # ------------------------------------------------------------
+  minio-init:
+    image: minio/mc:latest
+    container_name: zetrum-minio-init
+    networks:
+      - zetrum-net
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+        mc alias set zetrum http://minio:9000 zetrum_admin zetrum_secret_2024;
+        mc mb --ignore-existing zetrum/zetrum-bronze;
+        mc mb --ignore-existing zetrum/zetrum-silver;
+        mc mb --ignore-existing zetrum/zetrum-gold;
+        echo 'Buckets created: bronze, silver, gold';
+        exit 0;
+      "
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+
+  # ------------------------------------------------------------
+  # SPARK MASTER — Distributed processing engine
+  # Open-source equivalent of AWS EMR / Glue
+  # ------------------------------------------------------------
+  spark-master:
+    image: apache/spark:3.5.0
+    container_name: zetrum-spark-master
+    networks:
+      - zetrum-net
+    ports:
+      - "8080:8080"       # Spark Master UI → http://localhost:8080
+      - "7077:7077"       # Spark Master port (workers connect here)
+    environment:
+      SPARK_NO_DAEMONIZE: "true"
+    command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.master.Master"]
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # ------------------------------------------------------------
+  # SPARK WORKER — Executes Spark jobs
+  # Single worker to stay within 8GB RAM
+  # ------------------------------------------------------------
+  spark-worker:
+    image: apache/spark:3.5.0
+    container_name: zetrum-spark-worker
+    networks:
+      - zetrum-net
+    depends_on:
+      spark-master:
+        condition: service_healthy
+    ports:
+      - "8082:8081"       # Spark Worker UI → http://localhost:8082
+    environment:
+      SPARK_NO_DAEMONIZE: "true"
+      SPARK_WORKER_MEMORY: "1g"
+      SPARK_WORKER_CORES: "2"
+    command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.worker.Worker", "spark://spark-master:7077"]
+    deploy:
+      resources:
+        limits:
+          memory: 1200M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # ------------------------------------------------------------
+  # KAFKA UI — Browser UI to monitor Kafka topics & messages
+  # Optional but very useful during development
+  # Open: http://localhost:8090
+  # ------------------------------------------------------------
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: zetrum-kafka-ui
+    networks:
+      - zetrum-net
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8090:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: zetrum-local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      KAFKA_CLUSTERS_0_SCHEMAREGISTRY: http://schema-registry:8081
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+# ============================================================
+# TOTAL ESTIMATED RAM USAGE (at rest):
+#   Zookeeper:       ~200MB
+#   Kafka:           ~500MB
+#   Schema Registry: ~200MB
+#   MinIO:           ~150MB
+#   Spark Master:    ~300MB
+#   Spark Worker:    ~800MB
+#   Kafka UI:        ~150MB
+#   OS + overhead:   ~1.5GB
+#   -------------------------
+#   Total:           ~3.8GB  (safe on 8GB)
+#
+# UI ENDPOINTS:
+#   Kafka UI:        http://localhost:8090
+#   Spark Master:    http://localhost:8080
+#   MinIO Console:   http://localhost:9001  (admin: zetrum_admin / zetrum_secret_2024)
+#   Schema Registry: http://localhost:8081
+# ============================================================
