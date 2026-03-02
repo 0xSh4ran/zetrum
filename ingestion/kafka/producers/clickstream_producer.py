@@ -100,11 +100,34 @@ TIMEZONES = [
 ]
 
 GEO_DATA = [
+    # India
     {"country": "IN", "region": "Karnataka",   "city": "Bengaluru", "tz": "Asia/Kolkata"},
     {"country": "IN", "region": "Maharashtra", "city": "Mumbai",    "tz": "Asia/Kolkata"},
     {"country": "IN", "region": "Delhi",       "city": "New Delhi", "tz": "Asia/Kolkata"},
-    {"country": "US", "region": "California",  "city": "San Jose",  "tz": "America/Los_Angeles"},
+    {"country": "IN", "region": "Tamil Nadu",  "city": "Chennai",   "tz": "Asia/Kolkata"},
+    {"country": "IN", "region": "Telangana",   "city": "Hyderabad", "tz": "Asia/Kolkata"},
+    {"country": "IN", "region": "West Bengal", "city": "Kolkata",   "tz": "Asia/Kolkata"},
+    {"country": "IN", "region": "Gujarat",     "city": "Ahmedabad", "tz": "Asia/Kolkata"},
+    {"country": "IN", "region": "Rajasthan",   "city": "Jaipur",    "tz": "Asia/Kolkata"},
+    {"country": "IN", "region": "Punjab",      "city": "Chandigarh","tz": "Asia/Kolkata"},
+    {"country": "IN", "region": "Kerala",      "city": "Kochi",     "tz": "Asia/Kolkata"},
+    # USA
+    {"country": "US", "region": "California",  "city": "San Jose",      "tz": "America/Los_Angeles"},
+    {"country": "US", "region": "California",  "city": "San Francisco", "tz": "America/Los_Angeles"},
+    {"country": "US", "region": "New York",    "city": "New York City", "tz": "America/New_York"},
+    {"country": "US", "region": "Washington",  "city": "Seattle",       "tz": "America/Los_Angeles"},
+    {"country": "US", "region": "Texas",       "city": "Austin",        "tz": "America/Chicago"},
+    # Europe
     {"country": "GB", "region": "England",     "city": "London",    "tz": "Europe/London"},
+    {"country": "DE", "region": "Bavaria",     "city": "Munich",    "tz": "Europe/Berlin"},
+    {"country": "NL", "region": "North Holland","city": "Amsterdam", "tz": "Europe/Amsterdam"},
+    # Asia Pacific
+    {"country": "SG", "region": "Singapore",   "city": "Singapore", "tz": "Asia/Singapore"},
+    {"country": "JP", "region": "Tokyo",       "city": "Tokyo",     "tz": "Asia/Tokyo"},
+    {"country": "AU", "region": "New South Wales","city": "Sydney",  "tz": "Australia/Sydney"},
+    {"country": "AE", "region": "Dubai",       "city": "Dubai",     "tz": "Asia/Dubai"},
+    # Canada
+    {"country": "CA", "region": "Ontario",     "city": "Toronto",   "tz": "America/Toronto"},
 ]
 
 # Weighted event type distribution — mirrors real-world traffic
