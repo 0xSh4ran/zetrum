@@ -123,8 +123,10 @@ services:
       - "9000:9000"       # S3 API endpoint
       - "9001:9001"       # MinIO Web Console → open http://localhost:9001
     environment:
+      # DEV ONLY — change these in production, never commit real credentials
+      # Use environment variables or a secrets manager (e.g. AWS Secrets Manager, HashiCorp Vault)
       MINIO_ROOT_USER: zetrum_admin
-      MINIO_ROOT_PASSWORD: zetrum_secret_2024
+      MINIO_ROOT_PASSWORD: zetrum_secret_2024      
     command: server /data --console-address ":9001"
     volumes:
       - minio-data:/data
