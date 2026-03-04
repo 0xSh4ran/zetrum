@@ -39,8 +39,9 @@ org.apache.spark:spark-avro_2.12:3.5.0,\
 org.apache.hadoop:hadoop-aws:3.3.4,\
 com.amazonaws:aws-java-sdk-bundle:1.12.618" \
     \
-    --conf "spark.executor.memory=800m" \
-    --conf "spark.driver.memory=800m" \
+    --conf "spark.driver.host=spark-master" \
+    --conf "spark.executor.memory=600m" \
+    --conf "spark.driver.memory=512m" \
     --conf "spark.sql.shuffle.partitions=4" \
     \
     /opt/spark/work-dir/ingest_stream.py
