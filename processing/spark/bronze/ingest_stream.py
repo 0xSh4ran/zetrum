@@ -215,6 +215,9 @@ def transform(df):
         #from_avro(F.col("avro_value"), CLICKSTREAM_AVRO_SCHEMA)
     )
 
+    deserialized = deserialized.filter(F.col("event").isNotNull())
+    deserialized = deserialized.filter(F.col("event.event_id").isNotNull())
+    deserialized = deserialized.filter(F.col("event.event_timestamp") > "2024-01-01")
     return deserialized.select(
         F.col("event.event_id"),
         F.col("event.event_type"),
@@ -252,7 +255,7 @@ def transform(df):
 def write_to_bronze(df):
     log.info(f"Starting write stream to: {BRONZE_TABLE_PATH}")
     return (
-        df.writeStream
+        df.repartition(1).writeStream
         .format("iceberg")
         .outputMode("append")
         .trigger(processingTime="15 minutes")
