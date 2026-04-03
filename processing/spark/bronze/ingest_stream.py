@@ -254,12 +254,19 @@ def transform(df):
 
 def write_to_bronze(df):
     log.info(f"Starting write stream to: {BRONZE_TABLE_PATH}")
+
+    def write_batch(batch_df, batch_id):
+        if batch_df.count() == 0:
+            log.info(f"Batch {batch_id} is empty, skipping.")
+            return
+        log.info(f"Writing batch {batch_id} with {batch_df.count()} rows...")
+        batch_df.coalesce(1).writeTo(BRONZE_TABLE_PATH).append()
+        log.info(f"Batch {batch_id} written successfully.")
+
     return (
-        df.repartition(1).writeStream
-        .format("iceberg")
-        .outputMode("append")
+        df.writeStream
+        .foreachBatch(write_batch)
         .trigger(processingTime="15 minutes")
-        .option("path", BRONZE_TABLE_PATH)
         .option("checkpointLocation", CHECKPOINT_PATH)
         .start()
     )
