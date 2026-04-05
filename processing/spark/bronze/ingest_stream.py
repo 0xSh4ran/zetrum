@@ -91,10 +91,10 @@ def create_spark_session():
         # Iceberg
         .config("spark.sql.extensions",
                 "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions")
-        .config("spark.sql.catalog.zetrum",
+        .config("spark.sql.catalog.zetrum_raw",
                 "org.apache.iceberg.spark.SparkCatalog")
-        .config("spark.sql.catalog.zetrum.type", "hadoop")
-        .config("spark.sql.catalog.zetrum.warehouse", "s3a://zetrum-bronze")
+        .config("spark.sql.catalog.zetrum_raw.type", "hadoop")
+        .config("spark.sql.catalog.zetrum_raw.warehouse", "s3a://zetrum-bronze")
         # S3A / MinIO
         .config("spark.hadoop.fs.s3a.endpoint",               MINIO_ENDPOINT)
         .config("spark.hadoop.fs.s3a.access.key",             MINIO_ACCESS_KEY)
@@ -141,7 +141,7 @@ def create_bronze_table(spark):
     log.info("Ensuring bronze Iceberg table exists...")
     try:
         spark.sql(f"""
-            CREATE TABLE IF NOT EXISTS zetrum.clickstream_events (
+            CREATE TABLE IF NOT EXISTS zetrum_raw.clickstream_events (
                 event_id            STRING,
                 event_type          STRING,
                 event_timestamp     TIMESTAMP,
@@ -188,7 +188,7 @@ def read_kafka_stream(spark):
         .option("kafka.bootstrap.servers", KAFKA_BOOTSTRAP_SERVERS)
         .option("subscribe", KAFKA_TOPIC)
         .option("startingOffsets", "earliest")
-        .option("maxOffsetsPerTrigger", 1000)
+        .option("maxOffsetsPerTrigger", 100000)
         .option("failOnDataLoss", "false")
         .load()
     )
@@ -260,7 +260,7 @@ def write_to_bronze(df):
             log.info(f"Batch {batch_id} is empty, skipping.")
             return
         log.info(f"Writing batch {batch_id} with {batch_df.count()} rows...")
-        batch_df.coalesce(1).writeTo(BRONZE_TABLE_PATH).append()
+        batch_df.coalesce(1).writeTo("zetrum_raw.clickstream_events").append()
         log.info(f"Batch {batch_id} written successfully.")
 
     return (
